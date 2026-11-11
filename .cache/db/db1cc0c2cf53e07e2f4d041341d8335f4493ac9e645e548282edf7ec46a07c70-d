@@ -1,8 +1,0 @@
-./checker.go
-./cli.go
-./csv.go
-./excel.go
-./extractor.go
-./main.go
-./models.go
-./webui.go

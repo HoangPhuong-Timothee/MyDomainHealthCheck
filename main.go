@@ -14,7 +14,7 @@ func main() {
 	filePath := flag.String("file", "", "Đường dẫn file Excel (.xlsx) hoặc CSV để kiểm tra trực tiếp")
 	uiMode := flag.Bool("ui", false, "Chạy chế độ Web UI trực quan trên trình duyệt")
 	port := flag.Int("port", 8080, "Cổng máy chủ Web UI (mặc định 8080)")
-	timeoutSec := flag.Int("timeout", 8, "Thời gian chờ tối đa cho mỗi domain (giây)")
+	timeoutSec := flag.Int("timeout", 18, "Thời gian chờ tối đa cho mỗi domain (giây)")
 	concurrency := flag.Int("concurrency", 30, "Số luồng kiểm tra song song (mặc định 30)")
 	convertSample := flag.Bool("convert-sample", false, "Chuyển file mau_danh_sach.csv thành mau_danh_sach.xlsx")
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"strings"
 	"sync"
@@ -13,8 +14,8 @@ import (
 )
 
 const (
-	DefaultTimeout     = 8 * time.Second
-	DefaultConcurrency = 25
+	DefaultTimeout     = 18 * time.Second
+	DefaultConcurrency = 20
 	UserAgent          = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 )
 
@@ -71,7 +72,7 @@ func resolveHost(host string, timeout time.Duration) ([]string, string, error) {
 	pubResolver := &net.Resolver{
 		PreferGo: true,
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-			d := net.Dialer{Timeout: 2 * time.Second}
+			d := net.Dialer{Timeout: 3 * time.Second}
 			return d.DialContext(ctx, "udp", "8.8.8.8:53")
 		},
 	}
@@ -243,7 +244,7 @@ func (ce *CheckEngine) probeSmart(target string, hostAndPort string, explicitSch
 			scheme = "https"
 		}
 		ce.probeProtocol(scheme+"://"+hostAndPort, scheme == "https", res)
-		if res.Status == StatusDead || res.Status == StatusUnreachable {
+		if res.Status == StatusDead || res.Status == StatusUnreachable || res.Status == StatusWarning {
 			altScheme := "http"
 			if scheme == "http" {
 				altScheme = "https"
@@ -286,8 +287,8 @@ func (ce *CheckEngine) probeSmart(target string, hostAndPort string, explicitSch
 			return
 		}
 
-		// If HTTP failed, fallback to HTTPS
-		if res.Status == StatusUnreachable || res.Status == StatusDead {
+		// If HTTP failed or timed out, fallback to HTTPS
+		if res.Status == StatusUnreachable || res.Status == StatusDead || res.Status == StatusWarning {
 			httpsURL := "https://" + hostAndPort
 			var httpsRes CheckResult
 			ce.probeProtocol(httpsURL, true, &httpsRes)
@@ -313,7 +314,7 @@ func (ce *CheckEngine) probeSmart(target string, hostAndPort string, explicitSch
 		return
 	}
 
-	// If HTTPS failed (connection refused, timeout, protocol error), fallback to HTTP
+	// If HTTPS failed or timed out, fallback to HTTP
 	httpURL := "http://" + hostAndPort
 	var httpRes CheckResult
 	ce.probeProtocol(httpURL, false, &httpRes)
@@ -347,21 +348,25 @@ func (ce *CheckEngine) probeSmart(target string, hostAndPort string, explicitSch
 	}
 }
 
-func (ce *CheckEngine) probeProtocol(rawURL string, isHTTPS bool, res *CheckResult) {
-	client := &http.Client{
-		Timeout: ce.Timeout,
+func makeHTTPClient(timeout time.Duration, insecure bool, serverName string) *http.Client {
+	jar, _ := cookiejar.New(nil)
+	return &http.Client{
+		Timeout: timeout,
+		Jar:     jar,
 		Transport: &http.Transport{
+			ForceAttemptHTTP2: true,
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: false,
+				InsecureSkipVerify: insecure,
 				MinVersion:         tls.VersionTLS10,
 				Renegotiation:      tls.RenegotiateFreelyAsClient,
+				ServerName:         serverName,
 			},
 			DialContext: (&net.Dialer{
-				Timeout:   ce.Timeout,
+				Timeout:   timeout,
 				KeepAlive: 5 * time.Second,
 			}).DialContext,
-			TLSHandshakeTimeout:   ce.Timeout,
-			ResponseHeaderTimeout: ce.Timeout,
+			TLSHandshakeTimeout:   timeout,
+			ResponseHeaderTimeout: timeout,
 		},
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 10 {
@@ -371,6 +376,16 @@ func (ce *CheckEngine) probeProtocol(rawURL string, isHTTPS bool, res *CheckResu
 			return nil
 		},
 	}
+}
+
+func (ce *CheckEngine) probeProtocol(rawURL string, isHTTPS bool, res *CheckResult) {
+	u, parseErr := url.Parse(rawURL)
+	serverName := ""
+	if parseErr == nil {
+		serverName = u.Hostname()
+	}
+
+	client := makeHTTPClient(ce.Timeout, false, serverName)
 
 	req, err := http.NewRequest("GET", rawURL, nil)
 	if err != nil {
@@ -388,30 +403,7 @@ func (ce *CheckEngine) probeProtocol(rawURL string, isHTTPS bool, res *CheckResu
 
 		// If SSL error on HTTPS, retry with InsecureSkipVerify to check if web is alive
 		if isHTTPS && isSSLError(err) {
-			insecureClient := &http.Client{
-				Timeout: ce.Timeout,
-				Transport: &http.Transport{
-					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: true,
-						MinVersion:         tls.VersionTLS10,
-						Renegotiation:      tls.RenegotiateFreelyAsClient,
-					},
-					DialContext: (&net.Dialer{
-						Timeout:   ce.Timeout,
-						KeepAlive: 5 * time.Second,
-					}).DialContext,
-					TLSHandshakeTimeout:   ce.Timeout,
-					ResponseHeaderTimeout: ce.Timeout,
-				},
-				CheckRedirect: func(req *http.Request, via []*http.Request) error {
-					if len(via) >= 10 {
-						return fmt.Errorf("quá nhiều lần chuyển hướng (redirect loop)")
-					}
-					setStandardHeaders(req)
-					return nil
-				},
-			}
-
+			insecureClient := makeHTTPClient(ce.Timeout, true, serverName)
 			insecureReq, reqErr := http.NewRequest("GET", rawURL, nil)
 			if reqErr == nil {
 				setStandardHeaders(insecureReq)
@@ -432,20 +424,26 @@ func (ce *CheckEngine) probeProtocol(rawURL string, isHTTPS bool, res *CheckResu
 			}
 		}
 
-		// Connection Failure diagnosis
-		res.Status = StatusUnreachable
-		res.Category = "Không thể truy cập"
 		lowerErr := strings.ToLower(errStr)
 		if strings.Contains(lowerErr, "context deadline exceeded") || strings.Contains(lowerErr, "timeout") {
-			res.StatusText = "Quá thời gian phản hồi (Timeout)"
-			res.Details = "Máy chủ phản hồi quá lâu (>8s) hoặc bị tường lửa chặn (Too long to respond)"
+			// Timeout is treated as a WARNING because server may just be slow under load or cold start
+			res.Status = StatusWarning
+			res.Category = "Bị chặn / Khác"
+			res.StatusText = fmt.Sprintf("Phản hồi chậm (Timeout >%ds)", int(ce.Timeout.Seconds()))
+			res.Details = fmt.Sprintf("Tên miền trỏ đúng IP nhưng máy chủ phản hồi quá lâu (>%ds). Vẫn có thể mở được nếu mạng tốt hoặc server bớt tải (Too long to respond)", int(ce.Timeout.Seconds()))
 		} else if strings.Contains(lowerErr, "connection refused") || strings.Contains(lowerErr, "actively refused") {
+			res.Status = StatusUnreachable
+			res.Category = "Không thể truy cập"
 			res.StatusText = "Từ chối kết nối (Refused)"
 			res.Details = "Cổng dịch vụ 80/443 không mở hoặc web server tắt (Refused to connect)"
 		} else if strings.Contains(lowerErr, "connection reset") || strings.Contains(lowerErr, "forcibly closed") {
+			res.Status = StatusUnreachable
+			res.Category = "Không thể truy cập"
 			res.StatusText = "Mất kết nối (Reset)"
 			res.Details = "Máy chủ ngắt kết nối giữa chừng (Connection reset by peer)"
 		} else if strings.Contains(lowerErr, "no route to host") || strings.Contains(lowerErr, "network is unreachable") {
+			res.Status = StatusUnreachable
+			res.Category = "Không thể truy cập"
 			res.StatusText = "Không thể tiếp cận mạng"
 			res.Details = "Không tìm thấy đường truyền mạng tới máy chủ (Network unreachable)"
 		} else if strings.Contains(lowerErr, "redirect") {
@@ -454,6 +452,8 @@ func (ce *CheckEngine) probeProtocol(rawURL string, isHTTPS bool, res *CheckResu
 			res.StatusText = "Lặp chuyển hướng"
 			res.Details = "Website bị vòng lặp chuyển hướng quá 10 lần (Redirect loop)"
 		} else {
+			res.Status = StatusUnreachable
+			res.Category = "Không thể truy cập"
 			res.StatusText = "Không thể kết nối"
 			res.Details = errStr
 		}
@@ -470,7 +470,7 @@ func (ce *CheckEngine) probeProtocol(rawURL string, isHTTPS bool, res *CheckResu
 		res.Status = StatusOK
 		res.Category = "Hoạt động tốt"
 		res.StatusText = fmt.Sprintf("Hoạt động tốt (%d)", resp.StatusCode)
-		res.Details = "Website phản hồi nhanh và bình thường"
+		res.Details = "Website phản hồi tốt và bình thường"
 	} else if resp.StatusCode >= 300 && resp.StatusCode < 400 {
 		res.Status = StatusOK
 		res.Category = "Hoạt động tốt"
@@ -480,7 +480,7 @@ func (ce *CheckEngine) probeProtocol(rawURL string, isHTTPS bool, res *CheckResu
 		res.Status = StatusWarning
 		res.Category = "Bị chặn / Khác"
 		res.StatusText = fmt.Sprintf("Bị chặn/Khóa (%d)", resp.StatusCode)
-		res.Details = "Máy chủ còn hoạt động nhưng chặn truy cập (WAF/Cloudflare hoặc phân quyền)"
+		res.Details = "Máy chủ hoạt động bình thường nhưng chặn truy cập (WAF/Cloudflare hoặc trang yêu cầu đăng nhập/phân quyền)"
 	} else if resp.StatusCode == 404 {
 		res.Status = StatusWarning
 		res.Category = "Bị chặn / Khác"

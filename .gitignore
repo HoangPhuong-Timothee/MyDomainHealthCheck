@@ -1,0 +1,5 @@
+# Build cache and temporary tools
+.cache/
+.go/
+*.exe~
+*.tmp

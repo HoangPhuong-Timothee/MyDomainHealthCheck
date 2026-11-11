@@ -393,7 +393,7 @@ truongsavina.com
         <div class="config-group">
           <div class="config-item">
             <label for="cfg-timeout">Timeout (giây):</label>
-            <input type="number" id="cfg-timeout" value="8" min="2" max="60">
+            <input type="number" id="cfg-timeout" value="18" min="2" max="60">
           </div>
           <div class="config-item">
             <label for="cfg-concurrency">Số luồng song song:</label>
@@ -587,7 +587,7 @@ truongsavina.com
     async function startCheck() {
       if (isChecking) return;
 
-      const timeout = parseInt(document.getElementById('cfg-timeout').value) || 8;
+      const timeout = parseInt(document.getElementById('cfg-timeout').value) || 18;
       const concurrency = parseInt(document.getElementById('cfg-concurrency').value) || 30;
 
       allResults = [];
