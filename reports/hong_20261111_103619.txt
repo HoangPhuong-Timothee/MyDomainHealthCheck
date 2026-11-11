@@ -1,0 +1,15 @@
+# DANH SÁCH DOMAIN BỊ HỎNG / SẬP (Thời gian kiểm tra: 2026-11-11 10:36:19)
+# -----------------------------------------------------------------------
+
+http://ttytthanhhoa.vn	(KH: TTYT Thạnh Hóa | Lỗi: Lỗi DNS (Chưa ĐK / Hết hạn) - Không phân giải được tên miền: lookup ttytthanhhoa.vn: no such host)
+http://benhvientamthanlongan.gov.vn	(KH: bệnh viện tâm thần long an | Lỗi: Lỗi DNS (Chưa ĐK / Hết hạn) - Không phân giải được tên miền: lookup benhvientamthanlongan.gov.vn: no such host)
+benhvienphoilongan.vn	(KH: N/A | Lỗi: Lỗi DNS (Chưa ĐK / Hết hạn) - Không phân giải được tên miền: lookup benhvienphoilongan.vn: no such host)
+ttytduchoa.com	(KH: TTYT Đức Hòa | Lỗi: Lỗi DNS (Chưa ĐK / Hết hạn) - Không phân giải được tên miền: lookup ttytduchoa.com: no such host)
+ttytduchue.vn	(KH: TTYT Đức Huệ | Lỗi: Lỗi DNS (Chưa ĐK / Hết hạn) - Không phân giải được tên miền: lookup ttytduchue.vn: no such host)
+ttytcanduoc.gov.vn	(KH: TTYT Cần Đước | Lỗi: Lỗi DNS (Chưa ĐK / Hết hạn) - Không phân giải được tên miền: lookup ttytcanduoc.gov.vn: no such host)
+bvyhctla.vn	(KH: Bệnh viện Y học cổ truyền Long An | Lỗi: Lỗi DNS (Chưa ĐK / Hết hạn) - Không phân giải được tên miền: lookup bvyhctla.vn: no such host)
+trungtamytekhuvuctanan.vn	(KH: TT Y tế Tân an | Lỗi: Lỗi DNS (Chưa ĐK / Hết hạn) - Không phân giải được tên miền: lookup trungtamytekhuvuctanan.vn: no such host)
+mgtanthanhtnh.edu.vn	(KH: Mẫu giáo Tân Thành | Lỗi: Lỗi DNS (Chưa ĐK / Hết hạn) - Không phân giải được tên miền: lookup mgtanthanhtnh.edu.vn: no such host)
+thpttananla.edu.vn	(KH: THPT Tân An | Lỗi: Lỗi DNS (Chưa ĐK / Hết hạn) - Không phân giải được tên miền: lookup thpttananla.edu.vn: no such host)
+
+# Tổng số domain hỏng: 10

@@ -1,0 +1,6 @@
+# DANH SÁCH DOMAIN BỊ HỎNG / SẬP (Thời gian kiểm tra: 2026-11-11 10:31:35)
+# -----------------------------------------------------------------------
+
+http://ttytthanhhoa.vn	(KH: TTYT Thạnh Hóa | Lỗi: Timeout (>8s) - Server phản hồi quá chậm hoặc bị chặn bởi tường lửa)
+
+# Tổng số domain hỏng: 1

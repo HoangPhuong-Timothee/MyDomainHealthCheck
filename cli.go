@@ -202,35 +202,78 @@ func executeHealthCheck(records []Record, timeout time.Duration, concurrency int
 	fmt.Println("\n========================================================================")
 	fmt.Println("                            KẾT QUẢ KIỂM TRA                            ")
 	fmt.Println("========================================================================")
-	fmt.Printf(" - Tổng số website kiểm tra : %d\n", stats.Total)
-	fmt.Printf(" - Hoạt động bình thường(OK): %d\n", stats.OKCount)
-	fmt.Printf(" - Cảnh báo (SSL / Chặn 403): %d\n", stats.WarnCount)
-	fmt.Printf(" - BỊ HỎNG / SẬP (DEAD)     : %d  (CẦN XỬ LÝ!)\n", stats.DeadCount)
-	fmt.Printf(" - Thời gian thực hiện      : %s\n", duration.Round(time.Millisecond))
+	fmt.Printf(" - Tổng số website kiểm tra        : %d\n", stats.Total)
+	fmt.Printf(" - [1] Hoạt động tốt (HTTPS/SSL OK): %d\n", stats.OKCount)
+	fmt.Printf(" - [2] Không có SSL / Lỗi SSL      : %d  (Web vào được, HTTP/Lỗi SSL)\n", stats.NoSSLCount)
+	fmt.Printf(" - [3] Không thể truy cập          : %d  (Timeout, Từ chối, Lỗi 5xx)\n", stats.UnreachableCount)
+	fmt.Printf(" - [4] Hết hạn domain / Lỗi DNS    : %d  (NXDOMAIN, Chưa trỏ DNS)\n", stats.DNSErrorCount)
+	if stats.OtherCount > 0 {
+		fmt.Printf(" - [5] Bị chặn / Cảnh báo khác (403): %d\n", stats.OtherCount)
+	}
+	fmt.Printf(" - Thời gian thực hiện             : %s\n", duration.Round(time.Millisecond))
 	fmt.Println("========================================================================")
 
-	// List Dead Domains
-	if stats.DeadCount > 0 {
-		fmt.Println("\nDANH SÁCH TÊN MIỀN ĐANG HỎNG / SẬP:")
+	// 1. List DNS Errors
+	if stats.DNSErrorCount > 0 {
+		fmt.Printf("\n[!] DANH SÁCH TÊN MIỀN HẾT HẠN / LỖI DNS (%d domain - Cần gia hạn hoặc trỏ DNS):\n", stats.DNSErrorCount)
 		fmt.Println("------------------------------------------------------------------------")
 		count := 0
 		for _, r := range results {
-			if r.Status == StatusDead {
+			if r.Status == StatusDNSError {
 				count++
-				customer := r.Customer
-				if customer == "" {
-					customer = "N/A"
-				}
 				target := r.CleanTarget
 				if target == "" {
 					target = r.RawWebsite
 				}
-				fmt.Printf(" %2d. [HỎNG] %-32s | KH: %-25s | Lỗi: %s\n", count, target, truncate(customer, 25), r.StatusText)
+				fmt.Printf(" %2d. [DNS]   %-32s | KH: %-25s | Lỗi: %s\n", count, target, truncate(r.Customer, 25), r.StatusText)
 			}
 		}
 		fmt.Println("------------------------------------------------------------------------")
-	} else {
-		fmt.Println("\n[OK] TUYỆT VỜI! Tất cả các tên miền đều đang hoạt động bình thường.")
+	}
+
+	// 2. List Unreachable Domains
+	if stats.UnreachableCount > 0 {
+		fmt.Printf("\n[X] DANH SÁCH MÁY CHỦ KHÔNG THỂ TRUY CẬP (%d domain - Cần kiểm tra server):\n", stats.UnreachableCount)
+		fmt.Println("------------------------------------------------------------------------")
+		count := 0
+		for _, r := range results {
+			if r.Status == StatusUnreachable {
+				count++
+				target := r.CleanTarget
+				if target == "" {
+					target = r.RawWebsite
+				}
+				fmt.Printf(" %2d. [SẬP]   %-32s | KH: %-25s | Lỗi: %s\n", count, target, truncate(r.Customer, 25), r.StatusText)
+			}
+		}
+		fmt.Println("------------------------------------------------------------------------")
+	}
+
+	// 3. List No SSL Domains (first 10)
+	if stats.NoSSLCount > 0 {
+		fmt.Printf("\n[!] DANH SÁCH WEBSITE KHÔNG CÓ SSL / LỖI SSL (%d domain - Web vẫn xem được):\n", stats.NoSSLCount)
+		fmt.Println("------------------------------------------------------------------------")
+		count := 0
+		for _, r := range results {
+			if r.Status == StatusNoSSL {
+				count++
+				if count <= 15 {
+					target := r.CleanTarget
+					if target == "" {
+						target = r.RawWebsite
+					}
+					fmt.Printf(" %2d. [NO SSL] %-30s | KH: %-25s | %s\n", count, target, truncate(r.Customer, 25), r.StatusText)
+				}
+			}
+		}
+		if stats.NoSSLCount > 15 {
+			fmt.Printf(" ... và còn %d website khác (xem chi tiết trong file Excel báo cáo)\n", stats.NoSSLCount-15)
+		}
+		fmt.Println("------------------------------------------------------------------------")
+	}
+
+	if stats.DNSErrorCount == 0 && stats.UnreachableCount == 0 {
+		fmt.Println("\n[OK] TUYỆT VỜI! Tất cả các tên miền đều đang phân giải và kết nối thành công.")
 	}
 
 	// Export Files into reports folder with clean, short timestamped names
@@ -267,18 +310,19 @@ func executeHealthCheck(records []Record, timeout time.Duration, concurrency int
 			}
 		}
 
-		if stats.DeadCount > 0 {
-			fmt.Print("\n[?] Bạn có muốn kiểm tra lại (re-check) chỉ các domain đang hỏng không? (y/N): ")
+		brokenCount := stats.DNSErrorCount + stats.UnreachableCount
+		if brokenCount > 0 {
+			fmt.Printf("\n[?] Bạn có muốn kiểm tra lại (re-check) %d domain lỗi kết nối / DNS không? (y/N): ", brokenCount)
 			if scanner.Scan() {
 				ans := strings.ToLower(strings.TrimSpace(scanner.Text()))
 				if ans == "y" || ans == "yes" {
 					var deadRecords []Record
 					for _, r := range results {
-						if r.Status == StatusDead {
+						if r.Status == StatusDNSError || r.Status == StatusUnreachable || r.Status == StatusDead {
 							deadRecords = append(deadRecords, r.Record)
 						}
 					}
-					fmt.Printf("\n[*] Đang kiểm tra lại %d domain bị hỏng...\n", len(deadRecords))
+					fmt.Printf("\n[*] Đang kiểm tra lại %d domain lỗi...\n", len(deadRecords))
 					executeHealthCheck(deadRecords, timeout, concurrency, scanner)
 					return
 				}

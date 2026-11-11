@@ -13,12 +13,17 @@
       --text: #0f172a;
       --text-muted: #64748b;
       --border: #e2e8f0;
+
       --ok: #16a34a;
       --ok-bg: #dcfce7;
-      --dead: #dc2626;
-      --dead-bg: #fee2e2;
-      --warn: #d97706;
-      --warn-bg: #fef3c7;
+      --nossl: #d97706;
+      --nossl-bg: #fef3c7;
+      --unreachable: #ea580c;
+      --unreachable-bg: #ffedd5;
+      --dns: #dc2626;
+      --dns-bg: #fee2e2;
+      --warn: #7c3aed;
+      --warn-bg: #ede9fe;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -28,7 +33,7 @@
       line-height: 1.5;
       padding: 24px;
     }
-    .container { max-width: 1400px; margin: 0 auto; }
+    .container { max-width: 1440px; margin: 0 auto; }
     header {
       display: flex;
       justify-content: space-between;
@@ -43,7 +48,7 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 6px 12px;
+      padding: 6px 14px;
       border-radius: 9999px;
       font-size: 13px;
       font-weight: 600;
@@ -147,15 +152,15 @@
       border: 1px solid #cbd5e1;
       text-align: center;
     }
-    .btn-group { display: flex; gap: 10px; }
+    .btn-group { display: flex; flex-wrap: wrap; gap: 10px; }
     .btn {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 10px 20px;
+      padding: 10px 18px;
       border-radius: 8px;
       font-weight: 600;
-      font-size: 14px;
+      font-size: 13px;
       cursor: pointer;
       border: none;
       transition: all 0.2s;
@@ -175,24 +180,43 @@
     /* Stats Grid */
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 14px;
       margin-bottom: 24px;
     }
     .stat-card {
       background: var(--card);
       border-radius: 10px;
-      padding: 18px;
+      padding: 16px 18px;
       border: 1px solid var(--border);
       display: flex;
       flex-direction: column;
+      position: relative;
+      overflow: hidden;
     }
-    .stat-label { font-size: 13px; color: var(--text-muted); font-weight: 500; }
-    .stat-value { font-size: 28px; font-weight: 700; margin-top: 4px; }
-    .stat-dead { color: var(--dead); }
-    .stat-ok { color: var(--ok); }
-    .stat-warn { color: var(--warn); }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; bottom: 0;
+      width: 4px;
+    }
+    .stat-card.card-total::before { background: var(--primary); }
+    .stat-card.card-ok::before { background: var(--ok); }
+    .stat-card.card-nossl::before { background: var(--nossl); }
+    .stat-card.card-unreachable::before { background: var(--unreachable); }
+    .stat-card.card-dns::before { background: var(--dns); }
+    .stat-card.card-warn::before { background: var(--warn); }
+
+    .stat-label { font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-value { font-size: 26px; font-weight: 700; margin-top: 4px; }
+    .stat-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
     .stat-total { color: var(--primary); }
+    .stat-ok { color: var(--ok); }
+    .stat-nossl { color: var(--nossl); }
+    .stat-unreachable { color: var(--unreachable); }
+    .stat-dns { color: var(--dns); }
+    .stat-warn { color: var(--warn); }
 
     /* Progress bar */
     .progress-box {
@@ -227,7 +251,7 @@
       gap: 12px;
       margin-bottom: 12px;
     }
-    .filter-tabs { display: flex; gap: 6px; }
+    .filter-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
     .filter-btn {
       padding: 6px 12px;
       border-radius: 6px;
@@ -236,15 +260,19 @@
       border: 1px solid #cbd5e1;
       background: #fff;
       cursor: pointer;
+      color: #475569;
+      transition: all 0.15s;
     }
     .filter-btn.active {
       background: #1e293b;
       color: #fff;
       border-color: #1e293b;
     }
-    .filter-btn.filter-dead.active { background: var(--dead); border-color: var(--dead); }
-    .filter-btn.filter-ok.active { background: var(--ok); border-color: var(--ok); }
-    .filter-btn.filter-warn.active { background: var(--warn); border-color: var(--warn); }
+    .filter-btn.filter-ok.active { background: var(--ok); border-color: var(--ok); color: #fff; }
+    .filter-btn.filter-nossl.active { background: var(--nossl); border-color: var(--nossl); color: #fff; }
+    .filter-btn.filter-unreachable.active { background: var(--unreachable); border-color: var(--unreachable); color: #fff; }
+    .filter-btn.filter-dns.active { background: var(--dns); border-color: var(--dns); color: #fff; }
+    .filter-btn.filter-warn.active { background: var(--warn); border-color: var(--warn); color: #fff; }
 
     .search-input {
       padding: 8px 14px;
@@ -283,21 +311,27 @@
 
     .badge {
       display: inline-block;
-      padding: 3px 8px;
+      padding: 4px 9px;
       border-radius: 4px;
       font-weight: 700;
       font-size: 11px;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
     }
     .badge-ok { background: var(--ok-bg); color: var(--ok); }
-    .badge-dead { background: var(--dead-bg); color: var(--dead); }
+    .badge-nossl { background: var(--nossl-bg); color: var(--nossl); }
+    .badge-unreachable { background: var(--unreachable-bg); color: var(--unreachable); }
+    .badge-dns { background: var(--dns-bg); color: var(--dns); }
     .badge-warn { background: var(--warn-bg); color: var(--warn); }
 
     .domain-link { color: var(--primary); text-decoration: none; font-weight: 500; }
     .domain-link:hover { text-decoration: underline; }
-    .err-text { color: #dc2626; font-size: 12px; }
-    .warn-text { color: #d97706; font-size: 12px; }
+
     .ok-text { color: #16a34a; font-size: 12px; }
+    .nossl-text { color: #b45309; font-size: 12px; }
+    .unreachable-text { color: #c2410c; font-size: 12px; font-weight: 500; }
+    .dns-text { color: #b91c1c; font-size: 12px; font-weight: 600; }
+    .warn-text { color: #6d28d9; font-size: 12px; }
 
     .toast {
       position: fixed;
@@ -319,7 +353,7 @@
     <header>
       <div class="header-title">
         <h1>Domain Health Check Pro</h1>
-        <p>Hệ thống tự động kiểm tra trạng thái hoạt động & xuất danh sách tên miền lỗi / sập</p>
+        <p>Hệ thống tự động kiểm tra và phân loại website: Hoạt động tốt, Không có SSL, Không thể truy cập, Hết hạn domain / Lỗi DNS</p>
       </div>
       <div class="status-badge-live">
         <span class="pulse"></span> Sẵn sàng hoạt động
@@ -381,10 +415,10 @@ truongsavina.com
             &#128229; Tải File Excel (.xlsx)
           </button>
           <button class="btn btn-danger" id="btn-recheck-dead" style="display:none;" onclick="recheckDeadDomains()">
-            &#128260; Check Lại Domain Hỏng
+            &#128260; Check Lại Domain Lỗi
           </button>
           <button class="btn btn-outline" id="btn-copy-dead" style="display:none;" onclick="copyDeadDomains()">
-            &#128203; Sao Chép Domain Hỏng
+            &#128203; Sao Chép Domain Lỗi
           </button>
         </div>
       </div>
@@ -410,23 +444,37 @@ truongsavina.com
       </div>
     </div>
 
-    <!-- Summary Stats Grid -->
+    <!-- Summary Stats Grid (6 Categories) -->
     <div class="stats-grid" id="stats-grid" style="display: none;">
-      <div class="stat-card">
-        <span class="stat-label">TỔNG SỐ DOMAIN</span>
+      <div class="stat-card card-total">
+        <span class="stat-label">Tổng Số Website</span>
         <span class="stat-value stat-total" id="stat-total">0</span>
+        <span class="stat-desc">Đã kiểm tra</span>
       </div>
-      <div class="stat-card">
-        <span class="stat-label">&#10006; BỊ HỎNG / SẬP (DEAD)</span>
-        <span class="stat-value stat-dead" id="stat-dead">0</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">&#9888; CẢNH BÁO (SSL / CHẶN 403)</span>
-        <span class="stat-value stat-warn" id="stat-warn">0</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">&#10004; HOẠT ĐỘNG TỐT (OK)</span>
+      <div class="stat-card card-ok">
+        <span class="stat-label">&#10004; Hoạt Động Tốt</span>
         <span class="stat-value stat-ok" id="stat-ok">0</span>
+        <span class="stat-desc">HTTPS & SSL hợp lệ</span>
+      </div>
+      <div class="stat-card card-nossl">
+        <span class="stat-label">&#9888; Không Có SSL / Lỗi SSL</span>
+        <span class="stat-value stat-nossl" id="stat-nossl">0</span>
+        <span class="stat-desc">Web vào được, chỉ HTTP / Lỗi SSL</span>
+      </div>
+      <div class="stat-card card-unreachable">
+        <span class="stat-label">&#9889; Không Thể Truy Cập</span>
+        <span class="stat-value stat-unreachable" id="stat-unreachable">0</span>
+        <span class="stat-desc">Timeout, Từ chối, Lỗi 5xx</span>
+      </div>
+      <div class="stat-card card-dns">
+        <span class="stat-label">&#10006; Hết Hạn / Lỗi DNS</span>
+        <span class="stat-value stat-dns" id="stat-dns">0</span>
+        <span class="stat-desc">NXDOMAIN, Chưa trỏ DNS</span>
+      </div>
+      <div class="stat-card card-warn">
+        <span class="stat-label">&#128274; Bị Chặn / Khác</span>
+        <span class="stat-value stat-warn" id="stat-warn">0</span>
+        <span class="stat-desc">403 WAF, 404, Sai domain</span>
       </div>
     </div>
 
@@ -435,9 +483,11 @@ truongsavina.com
       <div class="table-toolbar">
         <div class="filter-tabs">
           <button class="filter-btn active" onclick="setFilter('ALL')">Tất Cả (<span id="count-all">0</span>)</button>
-          <button class="filter-btn filter-dead" onclick="setFilter('DEAD')">Chỉ Domain Hỏng (<span id="count-dead">0</span>)</button>
-          <button class="filter-btn filter-warn" onclick="setFilter('WARNING')">Cảnh Báo SSL/403 (<span id="count-warn">0</span>)</button>
           <button class="filter-btn filter-ok" onclick="setFilter('OK')">Hoạt Động Tốt (<span id="count-ok">0</span>)</button>
+          <button class="filter-btn filter-nossl" onclick="setFilter('NO_SSL')">Không Có SSL (<span id="count-nossl">0</span>)</button>
+          <button class="filter-btn filter-unreachable" onclick="setFilter('UNREACHABLE')">Không Thể Truy Cập (<span id="count-unreachable">0</span>)</button>
+          <button class="filter-btn filter-dns" onclick="setFilter('DNS_ERROR')">Hết Hạn / Lỗi DNS (<span id="count-dns">0</span>)</button>
+          <button class="filter-btn filter-warn" onclick="setFilter('WARNING')">Bị Chặn / Khác (<span id="count-warn">0</span>)</button>
         </div>
         <input type="text" class="search-input" id="search-input" placeholder="Tìm theo tên miền, khách hàng..." onkeyup="renderTable()">
       </div>
@@ -446,13 +496,14 @@ truongsavina.com
         <table>
           <thead>
             <tr>
-              <th style="width: 50px;">STT</th>
-              <th style="width: 140px;">Đơn Vị</th>
+              <th style="width: 50px; text-align: center;">STT</th>
+              <th style="width: 130px;">Đơn Vị</th>
               <th>Khách Hàng</th>
               <th>Target Kiểm Tra</th>
+              <th style="width: 140px; text-align: center;">Phân Loại</th>
               <th style="width: 90px; text-align: center;">Trạng Thái</th>
               <th style="width: 70px; text-align: center;">Code</th>
-              <th>Chi Tiết Sự Cố / Phản Hồi</th>
+              <th>Chi Tiết Phản Hồi / Sự Cố</th>
               <th style="width: 120px;">IP</th>
               <th style="width: 80px; text-align: right;">TG (ms)</th>
             </tr>
@@ -549,9 +600,9 @@ truongsavina.com
       document.getElementById('btn-export').style.display = 'none';
       document.getElementById('btn-copy-dead').style.display = 'none';
 
-      updateStats({ total: 0, ok: 0, dead: 0, warn: 0 });
+      updateStats({ total: 0, ok: 0, nossl: 0, unreachable: 0, dns: 0, warn: 0 });
 
-      let url = '/api/check-stream?timeout=' + timeout + '&concurrency=' + concurrency;
+      let url = '/api/paste-check';
       let bodyData = null;
       let headers = {};
 
@@ -593,7 +644,7 @@ truongsavina.com
           buffer += decoder.decode(value, { stream: true });
 
           const lines = buffer.split('\n');
-          buffer = lines.pop(); // keep last incomplete chunk
+          buffer = lines.pop();
 
           for (const line of lines) {
             const trimmed = line.trim();
@@ -631,15 +682,16 @@ truongsavina.com
       document.getElementById('progress-count').innerText = `${completed} / ${total} (${pct}%)`;
       document.getElementById('progress-status').innerText = `Đang check: ${item.clean_target || item.customer || 'website'}`;
 
-      let ok = 0, dead = 0, warn = 0;
+      let ok = 0, nossl = 0, unreachable = 0, dns = 0, warn = 0;
       allResults.forEach(r => {
         if (r.status === 'OK') ok++;
-        else if (r.status === 'DEAD') dead++;
-        else if (r.status === 'WARNING') warn++;
+        else if (r.status === 'NO_SSL') nossl++;
+        else if (r.status === 'UNREACHABLE') unreachable++;
+        else if (r.status === 'DNS_ERROR') dns++;
+        else warn++;
       });
-      updateStats({ total: allResults.length, ok, dead, warn });
+      updateStats({ total: allResults.length, ok, nossl, unreachable, dns, warn });
 
-      // If user is currently looking at this filter or ALL, render
       if (shouldShowItem(item, currentFilter)) {
         appendTableRow(item);
       }
@@ -656,11 +708,12 @@ truongsavina.com
         document.getElementById('saved-filename').innerText = msg.excel_file;
       }
 
-      if (stats.dead_count > 0) {
+      const brokenTotal = (stats.dns_error_count || 0) + (stats.unreachable_count || 0);
+      if (brokenTotal > 0) {
         document.getElementById('btn-recheck-dead').style.display = 'inline-flex';
       }
 
-      showToast(`Hoàn tất kiểm tra ${allResults.length} website! Phát hiện ${stats.dead_count || 0} domain hỏng.`);
+      showToast(`Hoàn tất kiểm tra ${allResults.length} website! Phát hiện ${brokenTotal} domain không truy cập được / lỗi DNS.`);
     }
 
     function openReportsFolder() {
@@ -677,47 +730,62 @@ truongsavina.com
     }
 
     function recheckDeadDomains() {
-      const dead = allResults.filter(r => r.status === 'DEAD').map(r => r.clean_target || r.raw_website).filter(Boolean);
-      if (dead.length === 0) {
-        showToast('Không có domain nào bị hỏng để kiểm tra lại!');
+      const broken = allResults.filter(r => r.status === 'UNREACHABLE' || r.status === 'DNS_ERROR' || r.status === 'DEAD')
+                               .map(r => r.clean_target || r.raw_website).filter(Boolean);
+      if (broken.length === 0) {
+        showToast('Không có domain nào bị lỗi kết nối hoặc DNS để kiểm tra lại!');
         return;
       }
       switchTab('paste');
-      document.getElementById('paste-input').value = dead.join('\n');
-      showToast(`Đã nạp ${dead.length} domain hỏng. Bắt đầu kiểm tra lại...`);
+      document.getElementById('paste-input').value = broken.join('\n');
+      showToast(`Đã nạp ${broken.length} domain lỗi. Bắt đầu kiểm tra lại...`);
       startCheck();
     }
 
     function updateStats(s) {
       document.getElementById('stat-total').innerText = s.total;
       document.getElementById('stat-ok').innerText = s.ok;
-      document.getElementById('stat-dead').innerText = s.dead;
+      document.getElementById('stat-nossl').innerText = s.nossl;
+      document.getElementById('stat-unreachable').innerText = s.unreachable;
+      document.getElementById('stat-dns').innerText = s.dns;
       document.getElementById('stat-warn').innerText = s.warn;
 
       document.getElementById('count-all').innerText = s.total;
       document.getElementById('count-ok').innerText = s.ok;
-      document.getElementById('count-dead').innerText = s.dead;
+      document.getElementById('count-nossl').innerText = s.nossl;
+      document.getElementById('count-unreachable').innerText = s.unreachable;
+      document.getElementById('count-dns').innerText = s.dns;
       document.getElementById('count-warn').innerText = s.warn;
     }
 
     function setFilter(f) {
       currentFilter = f;
       document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-      if (f === 'ALL') document.querySelector('.filter-btn:nth-child(1)').classList.add('active');
-      else if (f === 'DEAD') document.querySelector('.filter-btn:nth-child(2)').classList.add('active');
-      else if (f === 'WARNING') document.querySelector('.filter-btn:nth-child(3)').classList.add('active');
-      else if (f === 'OK') document.querySelector('.filter-btn:nth-child(4)').classList.add('active');
+      const buttons = document.querySelectorAll('.filter-btn');
+      if (f === 'ALL') buttons[0].classList.add('active');
+      else if (f === 'OK') buttons[1].classList.add('active');
+      else if (f === 'NO_SSL') buttons[2].classList.add('active');
+      else if (f === 'UNREACHABLE') buttons[3].classList.add('active');
+      else if (f === 'DNS_ERROR') buttons[4].classList.add('active');
+      else if (f === 'WARNING') buttons[5].classList.add('active');
       renderTable();
     }
 
     function shouldShowItem(r, filter) {
-      if (filter !== 'ALL' && r.status !== filter) return false;
+      if (filter !== 'ALL') {
+        if (filter === 'WARNING') {
+          if (r.status !== 'WARNING' && r.status !== 'DEAD') return false;
+        } else if (r.status !== filter) {
+          return false;
+        }
+      }
       const q = document.getElementById('search-input').value.toLowerCase().trim();
       if (!q) return true;
       return (r.customer && r.customer.toLowerCase().includes(q)) ||
              (r.clean_target && r.clean_target.toLowerCase().includes(q)) ||
              (r.unit && r.unit.toLowerCase().includes(q)) ||
-             (r.raw_website && r.raw_website.toLowerCase().includes(q));
+             (r.raw_website && r.raw_website.toLowerCase().includes(q)) ||
+             (r.category && r.category.toLowerCase().includes(q));
     }
 
     function renderTable() {
@@ -736,12 +804,27 @@ truongsavina.com
 
       let badgeClass = 'badge-ok';
       let detailClass = 'ok-text';
-      if (r.status === 'DEAD') {
-        badgeClass = 'badge-dead';
-        detailClass = 'err-text';
-      } else if (r.status === 'WARNING') {
-        badgeClass = 'badge-warn';
-        detailClass = 'warn-text';
+
+      switch (r.status) {
+        case 'OK':
+          badgeClass = 'badge-ok';
+          detailClass = 'ok-text';
+          break;
+        case 'NO_SSL':
+          badgeClass = 'badge-nossl';
+          detailClass = 'nossl-text';
+          break;
+        case 'UNREACHABLE':
+          badgeClass = 'badge-unreachable';
+          detailClass = 'unreachable-text';
+          break;
+        case 'DNS_ERROR':
+          badgeClass = 'badge-dns';
+          detailClass = 'dns-text';
+          break;
+        default:
+          badgeClass = 'badge-warn';
+          detailClass = 'warn-text';
       }
 
       const targetLink = r.clean_target ? 
@@ -753,7 +836,8 @@ truongsavina.com
         <td>${r.unit || '-'}</td>
         <td style="font-weight: 500;">${r.customer || '-'}</td>
         <td>${targetLink}</td>
-        <td style="text-align: center;"><span class="badge ${badgeClass}">${r.status}</span></td>
+        <td style="text-align: center;"><span class="badge ${badgeClass}">${r.category || r.status}</span></td>
+        <td style="text-align: center; font-weight: 600;"><span class="badge ${badgeClass}">${r.status}</span></td>
         <td style="text-align: center; font-weight: 600;">${r.status_code || '-'}</td>
         <td class="${detailClass}">${r.status_text} ${r.details ? '— ' + r.details : ''}</td>
         <td style="font-family: monospace; font-size: 12px;">${r.ip || '-'}</td>
@@ -763,13 +847,14 @@ truongsavina.com
     }
 
     function copyDeadDomains() {
-      const dead = allResults.filter(r => r.status === 'DEAD').map(r => r.clean_target || r.raw_website).filter(Boolean);
-      if (dead.length === 0) {
-        showToast('Không có domain nào bị hỏng để sao chép!');
+      const broken = allResults.filter(r => r.status === 'UNREACHABLE' || r.status === 'DNS_ERROR' || r.status === 'DEAD')
+                               .map(r => r.clean_target || r.raw_website).filter(Boolean);
+      if (broken.length === 0) {
+        showToast('Không có domain nào bị lỗi kết nối hoặc DNS để sao chép!');
         return;
       }
-      navigator.clipboard.writeText(dead.join('\n')).then(() => {
-        showToast(`Đã sao chép ${dead.length} domain hỏng vào clipboard!`);
+      navigator.clipboard.writeText(broken.join('\n')).then(() => {
+        showToast(`Đã sao chép ${broken.length} domain lỗi (DNS/Server) vào clipboard!`);
       }).catch(err => {
         showToast('Lỗi khi sao chép: ' + err);
       });

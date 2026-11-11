@@ -1,0 +1,28 @@
+=======================================================================
+            BÁO CÁO PHÂN LOẠI DANH SÁCH DOMAIN & WEBSITE
+             Thời gian kiểm tra: 2026-11-11 11:19:45
+=======================================================================
+
+TỔNG QUAN: Tổng 10 | Hoạt động tốt: 2 | Không có SSL: 7 | Không thể truy cập: 1 | Lỗi DNS/Hết hạn: 0 | Khác: 0
+
+-----------------------------------------------------------------------
+1. NHÓM HẾT HẠN TÊN MIỀN / LỖI DNS (CẦN GIA HẠN HOẶC TRỎ DNS) [0 domain]:
+-----------------------------------------------------------------------
+ (Không có tên miền nào bị lỗi DNS)
+
+-----------------------------------------------------------------------
+2. NHÓM KHÔNG THỂ TRUY CẬP (TIMEOUT / TỪ CHỐI / LỖI SERVER 5XX) [1 domain]:
+-----------------------------------------------------------------------
+  1. http://ttytthanhhoa.vn           | KH: TTYT Thạnh Hóa            | Quá thời gian phản hồi (Timeout) - Máy chủ phản hồi quá lâu (>8s) hoặc bị tường lửa chặn (Too long to respond)
+
+-----------------------------------------------------------------------
+3. NHÓM KHÔNG CÓ SSL / LỖI SSL (WEB VẪN VÀO ĐƯỢC NỘI DUNG) [7 domain]:
+-----------------------------------------------------------------------
+  1. http://benhvientamthanlongan.gov.vn | KH: bệnh viện tâm thần long an | Chưa có SSL (200) - Website hoạt động bình thường qua HTTP (Chưa cài đặt chứng chỉ SSL/HTTPS)
+  2. ttytduchoa.com                   | KH: TTYT Đức Hòa              | Lỗi SSL (200) - Website hoạt động bình thường nhưng SSL bị lỗi: Chứng chỉ tự ký hoặc tổ chức phát hành không tin cậy (Trình duyệt sẽ hiện cảnh báo bảo mật)
+  3. ttytduchue.vn                    | KH: TTYT Đức Huệ              | Lỗi SSL (200) - Website hoạt động bình thường nhưng SSL bị lỗi: Tên miền không khớp với chứng chỉ SSL (Trình duyệt sẽ hiện cảnh báo bảo mật)
+  4. ttytcanduoc.gov.vn               | KH: TTYT Cần Đước             | Lỗi SSL (200) - Website hoạt động bình thường nhưng SSL bị lỗi: Chứng chỉ tự ký hoặc tổ chức phát hành không tin cậy (Trình duyệt sẽ hiện cảnh báo bảo mật)
+  5. bvyhctla.vn                      | KH: Bệnh viện Y học cổ truyền Long An | Lỗi SSL (200) - Website hoạt động bình thường nhưng SSL bị lỗi: Tên miền không khớp với chứng chỉ SSL (Trình duyệt sẽ hiện cảnh báo bảo mật)
+  6. mgtanthanhtnh.edu.vn             | KH: Mẫu giáo Tân Thành        | Lỗi SSL (200) - Website hoạt động bình thường nhưng SSL bị lỗi: Chứng chỉ tự ký hoặc tổ chức phát hành không tin cậy (Trình duyệt sẽ hiện cảnh báo bảo mật)
+  7. thpttananla.edu.vn               | KH: THPT Tân An               | Lỗi SSL (200) - Website hoạt động bình thường nhưng SSL bị lỗi: Tên miền không khớp với chứng chỉ SSL (Trình duyệt sẽ hiện cảnh báo bảo mật)
+

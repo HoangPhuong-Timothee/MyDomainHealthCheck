@@ -212,29 +212,100 @@ func ReadCSVFile(filePath string) ([]Record, error) {
 	return records, nil
 }
 
-// ExportTextSummary writes a plain text file containing only dead domains
+// ExportTextSummary writes a plain text file containing categorized domain lists
 func ExportTextSummary(filePath string, results []CheckResult) error {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("# DANH SÁCH DOMAIN BỊ HỎNG / SẬP (Thời gian kiểm tra: %s)\n", time.Now().Format("2006-01-02 15:04:05")))
-	sb.WriteString("# -----------------------------------------------------------------------\n\n")
+	sb.WriteString("=======================================================================\n")
+	sb.WriteString("            BÁO CÁO PHÂN LOẠI DANH SÁCH DOMAIN & WEBSITE\n")
+	sb.WriteString(fmt.Sprintf("             Thời gian kiểm tra: %s\n", time.Now().Format("2006-01-02 15:04:05")))
+	sb.WriteString("=======================================================================\n\n")
 
-	deadCount := 0
+	// Grouping
+	var dnsErrors []CheckResult
+	var unreachable []CheckResult
+	var noSSL []CheckResult
+	var other []CheckResult
+	var okCount int
+
 	for _, r := range results {
-		if r.Status == StatusDead {
-			deadCount++
-			customer := r.Customer
-			if customer == "" {
-				customer = "N/A"
-			}
-			target := r.CleanTarget
-			if target == "" {
-				target = r.RawWebsite
-			}
-			sb.WriteString(fmt.Sprintf("%s\t(KH: %s | Lỗi: %s - %s)\n", target, customer, r.StatusText, r.Details))
+		switch r.Status {
+		case StatusDNSError:
+			dnsErrors = append(dnsErrors, r)
+		case StatusUnreachable:
+			unreachable = append(unreachable, r)
+		case StatusNoSSL:
+			noSSL = append(noSSL, r)
+		case StatusOK:
+			okCount++
+		default:
+			other = append(other, r)
 		}
 	}
 
-	sb.WriteString(fmt.Sprintf("\n# Tổng số domain hỏng: %d\n", deadCount))
+	sb.WriteString(fmt.Sprintf("TỔNG QUAN: Tổng %d | Hoạt động tốt: %d | Không có SSL: %d | Không thể truy cập: %d | Lỗi DNS/Hết hạn: %d | Khác: %d\n\n",
+		len(results), okCount, len(noSSL), len(unreachable), len(dnsErrors), len(other)))
+
+	formatItem := func(i int, r CheckResult) string {
+		cust := r.Customer
+		if cust == "" {
+			cust = "N/A"
+		}
+		target := r.CleanTarget
+		if target == "" {
+			target = r.RawWebsite
+		}
+		return fmt.Sprintf(" %2d. %-32s | KH: %-25s | %s - %s\n", i+1, target, cust, r.StatusText, r.Details)
+	}
+
+	// 1. DNS Errors
+	sb.WriteString("-----------------------------------------------------------------------\n")
+	sb.WriteString(fmt.Sprintf("1. NHÓM HẾT HẠN TÊN MIỀN / LỖI DNS (CẦN GIA HẠN HOẶC TRỎ DNS) [%d domain]:\n", len(dnsErrors)))
+	sb.WriteString("-----------------------------------------------------------------------\n")
+	if len(dnsErrors) == 0 {
+		sb.WriteString(" (Không có tên miền nào bị lỗi DNS)\n")
+	} else {
+		for i, r := range dnsErrors {
+			sb.WriteString(formatItem(i, r))
+		}
+	}
+	sb.WriteString("\n")
+
+	// 2. Unreachable
+	sb.WriteString("-----------------------------------------------------------------------\n")
+	sb.WriteString(fmt.Sprintf("2. NHÓM KHÔNG THỂ TRUY CẬP (TIMEOUT / TỪ CHỐI / LỖI SERVER 5XX) [%d domain]:\n", len(unreachable)))
+	sb.WriteString("-----------------------------------------------------------------------\n")
+	if len(unreachable) == 0 {
+		sb.WriteString(" (Không có website nào bị mất kết nối)\n")
+	} else {
+		for i, r := range unreachable {
+			sb.WriteString(formatItem(i, r))
+		}
+	}
+	sb.WriteString("\n")
+
+	// 3. No SSL
+	sb.WriteString("-----------------------------------------------------------------------\n")
+	sb.WriteString(fmt.Sprintf("3. NHÓM KHÔNG CÓ SSL / LỖI SSL (WEB VẪN VÀO ĐƯỢC NỘI DUNG) [%d domain]:\n", len(noSSL)))
+	sb.WriteString("-----------------------------------------------------------------------\n")
+	if len(noSSL) == 0 {
+		sb.WriteString(" (Tất cả website đều có SSL hợp lệ)\n")
+	} else {
+		for i, r := range noSSL {
+			sb.WriteString(formatItem(i, r))
+		}
+	}
+	sb.WriteString("\n")
+
+	// 4. Other
+	if len(other) > 0 {
+		sb.WriteString("-----------------------------------------------------------------------\n")
+		sb.WriteString(fmt.Sprintf("4. NHÓM BỊ CHẶN TRUY CẬP / CẢNH BÁO KHÁC (403 / 404 / SAI DOMAIN) [%d domain]:\n", len(other)))
+		sb.WriteString("-----------------------------------------------------------------------\n")
+		for i, r := range other {
+			sb.WriteString(formatItem(i, r))
+		}
+		sb.WriteString("\n")
+	}
 
 	return os.WriteFile(filePath, []byte(sb.String()), 0644)
 }

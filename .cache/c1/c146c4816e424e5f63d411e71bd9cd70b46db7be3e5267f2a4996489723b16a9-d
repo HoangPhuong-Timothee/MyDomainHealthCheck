@@ -1,0 +1,4 @@
+=== RUN   TestExtractTarget
+--- PASS: TestExtractTarget (0.00s)
+PASS
+ok  	ping-tool	0.722s
