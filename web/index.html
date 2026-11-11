@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Domain Health Check - Kiểm Tra Sức Khỏe Website</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --ok: #16a34a;
+      --ok-bg: #dcfce7;
+      --dead: #dc2626;
+      --dead-bg: #fee2e2;
+      --warn: #d97706;
+      --warn-bg: #fef3c7;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 24px;
+    }
+    .container { max-width: 1400px; margin: 0 auto; }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid var(--border);
+    }
+    .header-title h1 { font-size: 24px; font-weight: 700; color: #1e293b; }
+    .header-title p { color: var(--text-muted); font-size: 14px; margin-top: 4px; }
+    .status-badge-live {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 600;
+      background: #e0f2fe;
+      color: #0369a1;
+    }
+    .pulse {
+      width: 8px; height: 8px; border-radius: 50%; background: #0284c7;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+
+    /* Input card */
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+      border: 1px solid var(--border);
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    .tab-nav {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .tab-btn {
+      padding: 10px 18px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--text-muted);
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Dropzone */
+    .dropzone {
+      border: 2px dashed #cbd5e1;
+      border-radius: 8px;
+      padding: 32px 20px;
+      text-align: center;
+      cursor: pointer;
+      background: #f8fafc;
+      transition: all 0.2s;
+    }
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--primary);
+      background: #eff6ff;
+    }
+    .dropzone-icon { font-size: 36px; margin-bottom: 8px; }
+    .dropzone p { color: var(--text-muted); font-size: 14px; }
+    .dropzone span { color: var(--primary); font-weight: 600; }
+    input[type="file"] { display: none; }
+
+    /* Textarea */
+    textarea {
+      width: 100%;
+      height: 160px;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      font-family: monospace;
+      font-size: 13px;
+      resize: vertical;
+      background: #ffffff;
+    }
+    textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(37,99,235,0.15); }
+
+    /* Controls */
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .config-group {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 13px;
+    }
+    .config-item { display: flex; align-items: center; gap: 6px; }
+    .config-item input {
+      width: 60px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      text-align: center;
+    }
+    .btn-group { display: flex; gap: 10px; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-success { background: #16a34a; color: #fff; }
+    .btn-success:hover { background: #15803d; }
+    .btn-danger { background: #dc2626; color: #fff; }
+    .btn-danger:hover { background: #b91c1c; }
+    .btn-folder { background: #334155; color: #fff; }
+    .btn-folder:hover { background: #1e293b; }
+    .btn-outline { background: #fff; border: 1px solid #cbd5e1; color: var(--text); }
+    .btn-outline:hover { background: #f1f5f9; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--card);
+      border-radius: 10px;
+      padding: 18px;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+    }
+    .stat-label { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+    .stat-value { font-size: 28px; font-weight: 700; margin-top: 4px; }
+    .stat-dead { color: var(--dead); }
+    .stat-ok { color: var(--ok); }
+    .stat-warn { color: var(--warn); }
+    .stat-total { color: var(--primary); }
+
+    /* Progress bar */
+    .progress-box {
+      margin-bottom: 24px;
+      background: var(--card);
+      padding: 16px 20px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      display: none;
+    }
+    .progress-header { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+    .progress-track {
+      width: 100%;
+      height: 10px;
+      background: #e2e8f0;
+      border-radius: 9999px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #3b82f6, #10b981);
+      width: 0%;
+      transition: width 0.15s ease-out;
+    }
+
+    /* Table Toolbar */
+    .table-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .filter-tabs { display: flex; gap: 6px; }
+    .filter-btn {
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      cursor: pointer;
+    }
+    .filter-btn.active {
+      background: #1e293b;
+      color: #fff;
+      border-color: #1e293b;
+    }
+    .filter-btn.filter-dead.active { background: var(--dead); border-color: var(--dead); }
+    .filter-btn.filter-ok.active { background: var(--ok); border-color: var(--ok); }
+    .filter-btn.filter-warn.active { background: var(--warn); border-color: var(--warn); }
+
+    .search-input {
+      padding: 8px 14px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      font-size: 13px;
+      width: 260px;
+    }
+
+    /* Table */
+    .table-responsive {
+      background: var(--card);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      overflow-x: auto;
+      max-height: 600px;
+      overflow-y: auto;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+    thead th {
+      background: #f1f5f9;
+      color: #475569;
+      font-weight: 600;
+      padding: 12px 14px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid var(--border);
+    }
+    tbody td {
+      padding: 10px 14px;
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: middle;
+    }
+    tbody tr:hover { background: #f8fafc; }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
+    .badge-ok { background: var(--ok-bg); color: var(--ok); }
+    .badge-dead { background: var(--dead-bg); color: var(--dead); }
+    .badge-warn { background: var(--warn-bg); color: var(--warn); }
+
+    .domain-link { color: var(--primary); text-decoration: none; font-weight: 500; }
+    .domain-link:hover { text-decoration: underline; }
+    .err-text { color: #dc2626; font-size: 12px; }
+    .warn-text { color: #d97706; font-size: 12px; }
+    .ok-text { color: #16a34a; font-size: 12px; }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #1e293b;
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+      display: none;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="header-title">
+        <h1>Domain Health Check Pro</h1>
+        <p>Hệ thống tự động kiểm tra trạng thái hoạt động & xuất danh sách tên miền lỗi / sập</p>
+      </div>
+      <div class="status-badge-live">
+        <span class="pulse"></span> Sẵn sàng hoạt động
+      </div>
+    </header>
+
+    <!-- Input Section -->
+    <div class="card">
+      <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab('file')">Tải file Excel / CSV mẫu</button>
+        <button class="tab-btn" onclick="switchTab('paste')">Dán danh sách Domain trực tiếp</button>
+      </div>
+
+      <!-- Tab File Upload -->
+      <div id="tab-file" class="tab-content active">
+        <div class="dropzone" id="dropzone" onclick="document.getElementById('file-input').click()">
+          <div class="dropzone-icon">&#128194;</div>
+          <p>Kéo thả file <span>Excel (.xlsx)</span> hoặc <span>CSV (.csv)</span> vào đây</p>
+          <p style="margin-top: 4px; font-size: 12px;">Hoặc bấm vào để chọn file từ máy tính</p>
+          <input type="file" id="file-input" accept=".xlsx,.csv" onchange="handleFileSelect(this)">
+        </div>
+        <p id="file-name" style="margin-top: 8px; font-size: 13px; font-weight: 600; color: var(--primary); display: none;"></p>
+      </div>
+
+      <!-- Tab Paste Text -->
+      <div id="tab-paste" class="tab-content">
+        <textarea id="paste-input" placeholder="Dán danh sách domain vào đây (Ví dụ copy trực tiếp cột Website trong Excel):
+http://ttytthanhhoa.vn
+benhvientamthanlongan.gov.vn
+thpttananla.edu.vn
+truongsavina.com
+..."></textarea>
+      </div>
+
+      <!-- Action & Config Controls -->
+      <div class="controls-row">
+        <div class="config-group">
+          <div class="config-item">
+            <label for="cfg-timeout">Timeout (giây):</label>
+            <input type="number" id="cfg-timeout" value="8" min="2" max="60">
+          </div>
+          <div class="config-item">
+            <label for="cfg-concurrency">Số luồng song song:</label>
+            <input type="number" id="cfg-concurrency" value="30" min="1" max="100">
+          </div>
+        </div>
+
+        <div class="btn-group">
+          <button class="btn btn-primary" id="btn-start" onclick="startCheck()">
+            &#9658; Bắt Đầu Kiểm Tra
+          </button>
+          <button class="btn btn-outline" id="btn-sample" onclick="loadSampleFile()">
+            &#128196; Dùng File Mẫu Của Bạn
+          </button>
+          <button class="btn btn-folder" id="btn-open-folder" onclick="openReportsFolder()">
+            &#128194; Mở Thư Mục Báo Cáo
+          </button>
+          <button class="btn btn-success" id="btn-export" style="display:none;" onclick="exportExcel()">
+            &#128229; Tải File Excel (.xlsx)
+          </button>
+          <button class="btn btn-danger" id="btn-recheck-dead" style="display:none;" onclick="recheckDeadDomains()">
+            &#128260; Check Lại Domain Hỏng
+          </button>
+          <button class="btn btn-outline" id="btn-copy-dead" style="display:none;" onclick="copyDeadDomains()">
+            &#128203; Sao Chép Domain Hỏng
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Progress Box -->
+    <div class="progress-box" id="progress-box">
+      <div class="progress-header">
+        <span id="progress-status">Đang kiểm tra...</span>
+        <span id="progress-count">0 / 0 (0%)</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <div id="save-notification" style="display:none; margin-top:12px; padding:10px 14px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; font-size:13px; color:#166534; justify-content:space-between; align-items:center;">
+        <div>
+          <span>&#10004; Báo cáo đã tự động lưu vào thư mục <b>reports/</b>: </span>
+          <span id="saved-filename" style="font-weight:700;"></span>
+        </div>
+        <button class="btn btn-folder" onclick="openReportsFolder()" style="padding:4px 10px; font-size:12px; margin-left:10px;">
+          &#128194; Mở thư mục chứa file
+        </button>
+      </div>
+    </div>
+
+    <!-- Summary Stats Grid -->
+    <div class="stats-grid" id="stats-grid" style="display: none;">
+      <div class="stat-card">
+        <span class="stat-label">TỔNG SỐ DOMAIN</span>
+        <span class="stat-value stat-total" id="stat-total">0</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">&#10006; BỊ HỎNG / SẬP (DEAD)</span>
+        <span class="stat-value stat-dead" id="stat-dead">0</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">&#9888; CẢNH BÁO (SSL / CHẶN 403)</span>
+        <span class="stat-value stat-warn" id="stat-warn">0</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">&#10004; HOẠT ĐỘNG TỐT (OK)</span>
+        <span class="stat-value stat-ok" id="stat-ok">0</span>
+      </div>
+    </div>
+
+    <!-- Results Table Section -->
+    <div id="results-section" style="display: none;">
+      <div class="table-toolbar">
+        <div class="filter-tabs">
+          <button class="filter-btn active" onclick="setFilter('ALL')">Tất Cả (<span id="count-all">0</span>)</button>
+          <button class="filter-btn filter-dead" onclick="setFilter('DEAD')">Chỉ Domain Hỏng (<span id="count-dead">0</span>)</button>
+          <button class="filter-btn filter-warn" onclick="setFilter('WARNING')">Cảnh Báo SSL/403 (<span id="count-warn">0</span>)</button>
+          <button class="filter-btn filter-ok" onclick="setFilter('OK')">Hoạt Động Tốt (<span id="count-ok">0</span>)</button>
+        </div>
+        <input type="text" class="search-input" id="search-input" placeholder="Tìm theo tên miền, khách hàng..." onkeyup="renderTable()">
+      </div>
+
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 50px;">STT</th>
+              <th style="width: 140px;">Đơn Vị</th>
+              <th>Khách Hàng</th>
+              <th>Target Kiểm Tra</th>
+              <th style="width: 90px; text-align: center;">Trạng Thái</th>
+              <th style="width: 70px; text-align: center;">Code</th>
+              <th>Chi Tiết Sự Cố / Phản Hồi</th>
+              <th style="width: 120px;">IP</th>
+              <th style="width: 80px; text-align: right;">TG (ms)</th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let activeTab = 'file';
+    let selectedFile = null;
+    let allResults = [];
+    let currentFilter = 'ALL';
+    let isChecking = false;
+
+    // Drag and drop setup
+    const dropzone = document.getElementById('dropzone');
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', () => { dropzone.classList.remove('dragover'); });
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files.length > 0) {
+        selectedFile = e.dataTransfer.files[0];
+        showFileName(selectedFile.name);
+      }
+    });
+
+    function handleFileSelect(input) {
+      if (input.files.length > 0) {
+        selectedFile = input.files[0];
+        showFileName(selectedFile.name);
+      }
+    }
+
+    function showFileName(name) {
+      const el = document.getElementById('file-name');
+      el.innerText = 'Đã chọn file: ' + name;
+      el.style.display = 'block';
+    }
+
+    function switchTab(tab) {
+      activeTab = tab;
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      if (tab === 'file') {
+        document.querySelector('.tab-btn:nth-child(1)').classList.add('active');
+        document.getElementById('tab-file').classList.add('active');
+      } else {
+        document.querySelector('.tab-btn:nth-child(2)').classList.add('active');
+        document.getElementById('tab-paste').classList.add('active');
+      }
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.innerText = msg;
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 3500);
+    }
+
+    function loadSampleFile() {
+      fetch('/api/load-sample')
+        .then(res => res.json())
+        .then(data => {
+          if (data.error) {
+            showToast('Lỗi: ' + data.error);
+            return;
+          }
+          switchTab('paste');
+          document.getElementById('paste-input').value = data.content;
+          showToast('Đã tải danh sách mẫu (' + data.count + ' website)! Nhấn "Bắt Đầu Kiểm Tra".');
+        })
+        .catch(err => showToast('Không thể tải file mẫu: ' + err));
+    }
+
+    async function startCheck() {
+      if (isChecking) return;
+
+      const timeout = parseInt(document.getElementById('cfg-timeout').value) || 8;
+      const concurrency = parseInt(document.getElementById('cfg-concurrency').value) || 30;
+
+      allResults = [];
+      document.getElementById('table-body').innerHTML = '';
+      document.getElementById('stats-grid').style.display = 'grid';
+      document.getElementById('results-section').style.display = 'block';
+      document.getElementById('progress-box').style.display = 'block';
+      document.getElementById('save-notification').style.display = 'none';
+      document.getElementById('btn-recheck-dead').style.display = 'none';
+      document.getElementById('btn-export').style.display = 'none';
+      document.getElementById('btn-copy-dead').style.display = 'none';
+
+      updateStats({ total: 0, ok: 0, dead: 0, warn: 0 });
+
+      let url = '/api/check-stream?timeout=' + timeout + '&concurrency=' + concurrency;
+      let bodyData = null;
+      let headers = {};
+
+      if (activeTab === 'file') {
+        if (!selectedFile) {
+          showToast('Vui lòng chọn hoặc kéo thả file Excel / CSV vào trước!');
+          return;
+        }
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('timeout', timeout);
+        formData.append('concurrency', concurrency);
+        url = '/api/upload-check';
+        bodyData = formData;
+      } else {
+        const text = document.getElementById('paste-input').value.trim();
+        if (!text) {
+          showToast('Vui lòng dán danh sách domain vào ô nhập liệu!');
+          return;
+        }
+        headers['Content-Type'] = 'application/json';
+        bodyData = JSON.stringify({ text, timeout, concurrency });
+        url = '/api/paste-check';
+      }
+
+      isChecking = true;
+      document.getElementById('btn-start').disabled = true;
+      document.getElementById('btn-start').innerText = '⏳ Đang kiểm tra...';
+
+      try {
+        const res = await fetch(url, { method: 'POST', headers, body: bodyData });
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          const lines = buffer.split('\n');
+          buffer = lines.pop(); // keep last incomplete chunk
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || !trimmed.startsWith('data:')) continue;
+            const jsonStr = trimmed.substring(5).trim();
+            if (!jsonStr) continue;
+
+            try {
+              const msg = JSON.parse(jsonStr);
+              if (msg.type === 'item') {
+                allResults.push(msg.data);
+                updateLiveItem(msg.data, msg.completed, msg.total);
+              } else if (msg.type === 'done') {
+                finishCheck(msg);
+              }
+            } catch (e) {
+              console.error('JSON parse error:', e, jsonStr);
+            }
+          }
+        }
+      } catch (err) {
+        showToast('Lỗi khi gửi yêu cầu kiểm tra: ' + err);
+      } finally {
+        isChecking = false;
+        document.getElementById('btn-start').disabled = false;
+        document.getElementById('btn-start').innerText = '► Bắt Đầu Kiểm Tra';
+        document.getElementById('btn-export').style.display = 'inline-flex';
+        document.getElementById('btn-copy-dead').style.display = 'inline-flex';
+      }
+    }
+
+    function updateLiveItem(item, completed, total) {
+      const pct = Math.round((completed / total) * 100);
+      document.getElementById('progress-fill').style.width = pct + '%';
+      document.getElementById('progress-count').innerText = `${completed} / ${total} (${pct}%)`;
+      document.getElementById('progress-status').innerText = `Đang check: ${item.clean_target || item.customer || 'website'}`;
+
+      let ok = 0, dead = 0, warn = 0;
+      allResults.forEach(r => {
+        if (r.status === 'OK') ok++;
+        else if (r.status === 'DEAD') dead++;
+        else if (r.status === 'WARNING') warn++;
+      });
+      updateStats({ total: allResults.length, ok, dead, warn });
+
+      // If user is currently looking at this filter or ALL, render
+      if (shouldShowItem(item, currentFilter)) {
+        appendTableRow(item);
+      }
+    }
+
+    function finishCheck(msg) {
+      const stats = msg.stats || {};
+      document.getElementById('progress-status').innerText = 'Kiểm tra hoàn tất!';
+      document.getElementById('progress-fill').style.width = '100%';
+      renderTable();
+
+      if (msg.excel_file) {
+        document.getElementById('save-notification').style.display = 'flex';
+        document.getElementById('saved-filename').innerText = msg.excel_file;
+      }
+
+      if (stats.dead_count > 0) {
+        document.getElementById('btn-recheck-dead').style.display = 'inline-flex';
+      }
+
+      showToast(`Hoàn tất kiểm tra ${allResults.length} website! Phát hiện ${stats.dead_count || 0} domain hỏng.`);
+    }
+
+    function openReportsFolder() {
+      fetch('/api/open-folder', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            showToast('Đã mở thư mục reports/ trong File Explorer!');
+          } else {
+            showToast('Lỗi mở thư mục: ' + (data.error || ''));
+          }
+        })
+        .catch(err => showToast('Lỗi: ' + err));
+    }
+
+    function recheckDeadDomains() {
+      const dead = allResults.filter(r => r.status === 'DEAD').map(r => r.clean_target || r.raw_website).filter(Boolean);
+      if (dead.length === 0) {
+        showToast('Không có domain nào bị hỏng để kiểm tra lại!');
+        return;
+      }
+      switchTab('paste');
+      document.getElementById('paste-input').value = dead.join('\n');
+      showToast(`Đã nạp ${dead.length} domain hỏng. Bắt đầu kiểm tra lại...`);
+      startCheck();
+    }
+
+    function updateStats(s) {
+      document.getElementById('stat-total').innerText = s.total;
+      document.getElementById('stat-ok').innerText = s.ok;
+      document.getElementById('stat-dead').innerText = s.dead;
+      document.getElementById('stat-warn').innerText = s.warn;
+
+      document.getElementById('count-all').innerText = s.total;
+      document.getElementById('count-ok').innerText = s.ok;
+      document.getElementById('count-dead').innerText = s.dead;
+      document.getElementById('count-warn').innerText = s.warn;
+    }
+
+    function setFilter(f) {
+      currentFilter = f;
+      document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+      if (f === 'ALL') document.querySelector('.filter-btn:nth-child(1)').classList.add('active');
+      else if (f === 'DEAD') document.querySelector('.filter-btn:nth-child(2)').classList.add('active');
+      else if (f === 'WARNING') document.querySelector('.filter-btn:nth-child(3)').classList.add('active');
+      else if (f === 'OK') document.querySelector('.filter-btn:nth-child(4)').classList.add('active');
+      renderTable();
+    }
+
+    function shouldShowItem(r, filter) {
+      if (filter !== 'ALL' && r.status !== filter) return false;
+      const q = document.getElementById('search-input').value.toLowerCase().trim();
+      if (!q) return true;
+      return (r.customer && r.customer.toLowerCase().includes(q)) ||
+             (r.clean_target && r.clean_target.toLowerCase().includes(q)) ||
+             (r.unit && r.unit.toLowerCase().includes(q)) ||
+             (r.raw_website && r.raw_website.toLowerCase().includes(q));
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('table-body');
+      tbody.innerHTML = '';
+      allResults.forEach(r => {
+        if (shouldShowItem(r, currentFilter)) {
+          appendTableRow(r);
+        }
+      });
+    }
+
+    function appendTableRow(r) {
+      const tbody = document.getElementById('table-body');
+      const tr = document.createElement('tr');
+
+      let badgeClass = 'badge-ok';
+      let detailClass = 'ok-text';
+      if (r.status === 'DEAD') {
+        badgeClass = 'badge-dead';
+        detailClass = 'err-text';
+      } else if (r.status === 'WARNING') {
+        badgeClass = 'badge-warn';
+        detailClass = 'warn-text';
+      }
+
+      const targetLink = r.clean_target ? 
+        `<a href="${r.clean_target.startsWith('http') ? r.clean_target : 'http://' + r.clean_target}" target="_blank" class="domain-link">${r.clean_target}</a>` : 
+        `<span style="color:#94a3b8;">${r.raw_website || '(Trống)'}</span>`;
+
+      tr.innerHTML = `
+        <td style="text-align: center; color: var(--text-muted);">${r.index || '-'}</td>
+        <td>${r.unit || '-'}</td>
+        <td style="font-weight: 500;">${r.customer || '-'}</td>
+        <td>${targetLink}</td>
+        <td style="text-align: center;"><span class="badge ${badgeClass}">${r.status}</span></td>
+        <td style="text-align: center; font-weight: 600;">${r.status_code || '-'}</td>
+        <td class="${detailClass}">${r.status_text} ${r.details ? '— ' + r.details : ''}</td>
+        <td style="font-family: monospace; font-size: 12px;">${r.ip || '-'}</td>
+        <td style="text-align: right; font-family: monospace;">${r.response_ms ? r.response_ms + 'ms' : '-'}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    function copyDeadDomains() {
+      const dead = allResults.filter(r => r.status === 'DEAD').map(r => r.clean_target || r.raw_website).filter(Boolean);
+      if (dead.length === 0) {
+        showToast('Không có domain nào bị hỏng để sao chép!');
+        return;
+      }
+      navigator.clipboard.writeText(dead.join('\n')).then(() => {
+        showToast(`Đã sao chép ${dead.length} domain hỏng vào clipboard!`);
+      }).catch(err => {
+        showToast('Lỗi khi sao chép: ' + err);
+      });
+    }
+
+    function exportExcel() {
+      if (allResults.length === 0) {
+        showToast('Chưa có dữ liệu kiểm tra để xuất!');
+        return;
+      }
+      fetch('/api/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(allResults)
+      })
+      .then(res => res.blob())
+      .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const d = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        const timeTag = `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+        a.download = `baocao_${timeTag}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        showToast('Đã tải xuống file báo cáo Excel thành công!');
+      })
+      .catch(err => showToast('Lỗi khi xuất Excel: ' + err));
+    }
+  </script>
+</body>
+</html>
